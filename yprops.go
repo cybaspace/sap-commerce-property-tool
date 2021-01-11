@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+const localPropertiesFile = "local.properties"
 const machinePropertiesCSVFile = "machine.properties.csv"
 const mylocalPropertiesFile = "mylocal.properties"
 const filesListFile = "property-files"
@@ -40,7 +41,7 @@ func main() {
 	fileListPtr = flag.String("files", "", "Comma separated list of property and csv files")
 	flag.StringVar(&system, "system", "", "Name of system for which properties should be considered")
 	flag.BoolVar(&verbose, "v", false, "Print information to the console")
-	flag.StringVar(&output, "output", "local.properties", "Send output to a file or with '<console>' to console (default='local.properties')")
+	flag.StringVar(&output, "output", localPropertiesFile, "Send output to a file or with '<console>' to console (default='local.properties')")
 	flag.Parse()
 
 	if !strings.HasSuffix(configPath, "/") {
@@ -248,12 +249,12 @@ func diffFiles(args []string) {
 				diffs = append(diffs, fmt.Sprintf("≈ %v: [%v] ≈ [%v]", key, value, value2))
 			}
 		} else {
-			diffs = append(diffs, fmt.Sprintf("+ %v: [%v]", key, value))
+			diffs = append(diffs, fmt.Sprintf("- %v: [%v]", key, value))
 		}
 	}
 	for key, value := range props2 {
 		if _, ok := props1[key]; !ok {
-			diffs = append(diffs, fmt.Sprintf("- %v: [%v]", key, value))
+			diffs = append(diffs, fmt.Sprintf("+ %v: [%v]", key, value))
 		}
 	}
 	if len(diffs) < 1 {
@@ -261,8 +262,8 @@ func diffFiles(args []string) {
 	} else {
 		fmt.Printf("There are differences in properties between %v and %v\n", diffArg1, diffArg2)
 		fmt.Printf("\n≈ means the value differ between %v and %v\n", diffArg1, diffArg2)
-		fmt.Println("+ This property has been found only in " + diffArg1)
-		fmt.Println("- This property has been found only in " + diffArg2 + "\n")
+		fmt.Println("- This property has been found only in " + diffArg1)
+		fmt.Println("+ This property has been found only in " + diffArg2 + "\n")
 		for _, diff := range diffs {
 			fmt.Println(diff)
 		}
@@ -329,9 +330,25 @@ func generate(args []string) {
 		return
 	}
 
-	evaluateAllPropertyFiles()
-
-	createOutput()
+	if system != "<all>" {
+		evaluateAllPropertyFiles()
+		createOutput()
+	} else {
+		expandFileList()
+		systems := readSystemNames()
+		outputOriginal := output
+		for _, system = range systems {
+			evaluateAllPropertyFiles()
+			if outputOriginal != "<console>" {
+				if outputOriginal == localPropertiesFile {
+					output = "local-" + system + ".properties"
+				} else {
+					output = outputOriginal + "-" + system
+				}
+			}
+			createOutput()
+		}
+	}
 }
 
 func isCsvFile(filepath string) bool {

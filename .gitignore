@@ -1,2 +1,4 @@
 .goreleaser.yml
 .vscode/
+dist/
+test-props/local.properties
