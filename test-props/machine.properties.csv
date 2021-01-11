@@ -1,0 +1,7 @@
+configured system;first;second;third;fourth;fifth
+also.machine.property;machine value;*>
+take.value.before;wrong value;wrong value;third value;*=
+take.first.value;first value;*>
+empty.value;wrong value;wrong value;wrong value
+remove.value;x;*>;;>remove<
+also.remove.value;>remove<;*>
