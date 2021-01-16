@@ -13,7 +13,6 @@ import (
 )
 
 const localPropertiesFile = "local.properties"
-const machinePropertiesCSVFile = "machine.properties.csv"
 const mylocalPropertiesFile = "mylocal.properties"
 const filesListFile = "property-files"
 
@@ -58,14 +57,16 @@ func main() {
 		generate(flag.Args())
 	case "get":
 		getProperty(flag.Args())
-	case "list":
-		listSystems()
 	case "diff":
 		diffFiles(flag.Args())
+	case "list":
+		listSystems()
 	default:
 		showHelp()
 	}
 }
+
+// Help
 
 func showHelp() {
 	fmt.Println("SAP Commerce property tool")
@@ -134,68 +135,69 @@ func showDiffHelp(file1 string, file2 string) {
 	}
 }
 
-func expandFileList() {
-	var filelist []string
-	if *fileListPtr != "" {
-		filelist = strings.Split(*fileListPtr, ",")
+// generate
+func generate(args []string) {
+
+	if system == "" {
+		systems := readSystemNames()
+		showGenerateHelp(systems, "")
+		return
+	}
+
+	if system != "<all>" {
+		evaluateAllPropertyFiles()
+		createOutput()
 	} else {
-		filelist = *readFileList()
-	}
-	for _, filename := range filelist {
-		var filenameLower = strings.ToLower(filename)
-		if !(strings.HasSuffix(filenameLower, ".properties") || strings.HasSuffix(filenameLower, ".csv")) {
-			logError("Only .properties and .csv files are supported - file is: " + filename)
-		}
-		var filePath string
-		if strings.Contains(filename, "/") {
-			filePath = filename
-		} else {
-			filePath = configPath + filename
-		}
-		if _, err := os.Stat(filePath); err != nil {
-			logError("File " + filePath + " not found:\n  " + err.Error())
-		}
-		propertyFiles = append(propertyFiles, filePath)
-	}
-
-	var mylocalFilePath string = configPath + mylocalPropertiesFile
-	if _, err := os.Stat(mylocalFilePath); err == nil {
-		propertyFiles = append(propertyFiles, mylocalFilePath)
-	}
-}
-
-func listSystems() {
-	expandFileList()
-
-	for _, filepath := range propertyFiles {
-		if strings.HasSuffix(filepath, ".csv") {
-			var systemnames = readSystemNames()
-			for _, systemname := range systemnames {
-				fmt.Println(systemname)
+		expandFileList()
+		systems := readSystemNames()
+		outputOriginal := output
+		for _, system = range systems {
+			evaluateAllPropertyFiles()
+			if outputOriginal != "<console>" {
+				if outputOriginal == localPropertiesFile {
+					output = "local-" + system + ".properties"
+				} else {
+					output = outputOriginal + "-" + system
+				}
 			}
-			return
+			createOutput()
 		}
 	}
-	logError("No system found")
 }
 
-func filenameOk(filename string, err error) string {
-	if err == nil {
-		return "<ok>"
+// get
+func getProperty(args []string) {
+
+	var requestedProperty = args[1]
+
+	if system == "" {
+		systems := readSystemNames()
+		showGenerateHelp(systems, "")
+		return
 	}
-	return filename
-}
 
-func evaluatePropertiesForSystem(systemName string) map[string]string {
-	system = systemName
 	evaluateAllPropertyFiles()
-	var props = make(map[string]string)
-	for key, prop := range properties {
-		props[key] = prop.value
+
+	if !strings.Contains(requestedProperty, ",") {
+		if value, ok := properties[requestedProperty]; ok {
+			fmt.Print(value.value)
+		} else {
+			os.Exit(1)
+		}
+	} else {
+		allRequestedProperties := strings.Split(requestedProperty, ",")
+		for _, property := range allRequestedProperties {
+			if value, ok := properties[property]; ok {
+				fmt.Println(property + "=" + value.value)
+			} else {
+				fmt.Println("+++ Missing value for property key: " + property)
+				os.Exit(1)
+			}
+		}
 	}
-	return props
 }
 
+// Diff
 func diffFiles(args []string) {
 	if len(strings.Split(*fileListPtr, ",")) != 2 && (system == "" || !strings.Contains(system, ",")) {
 		showDiffHelp("", "")
@@ -270,6 +272,71 @@ func diffFiles(args []string) {
 	}
 }
 
+// List Systems
+func listSystems() {
+	expandFileList()
+
+	for _, filepath := range propertyFiles {
+		if strings.HasSuffix(filepath, ".csv") {
+			var systemnames = readSystemNames()
+			for _, systemname := range systemnames {
+				fmt.Println(systemname)
+			}
+			return
+		}
+	}
+	logError("No system found")
+}
+
+// Common functions
+
+func expandFileList() {
+	var filelist []string
+	if *fileListPtr != "" {
+		filelist = strings.Split(*fileListPtr, ",")
+	} else {
+		filelist = *readFileList()
+	}
+	for _, filename := range filelist {
+		var filenameLower = strings.ToLower(filename)
+		if !(strings.HasSuffix(filenameLower, ".properties") || strings.HasSuffix(filenameLower, ".csv")) {
+			logError("Only .properties and .csv files are supported - file is: " + filename)
+		}
+		var filePath string
+		if strings.Contains(filename, "/") {
+			filePath = filename
+		} else {
+			filePath = configPath + filename
+		}
+		if _, err := os.Stat(filePath); err != nil {
+			logError("File " + filePath + " not found:\n  " + err.Error())
+		}
+		propertyFiles = append(propertyFiles, filePath)
+	}
+
+	var mylocalFilePath string = configPath + mylocalPropertiesFile
+	if _, err := os.Stat(mylocalFilePath); err == nil {
+		propertyFiles = append(propertyFiles, mylocalFilePath)
+	}
+}
+
+func filenameOk(filename string, err error) string {
+	if err == nil {
+		return "<ok>"
+	}
+	return filename
+}
+
+func evaluatePropertiesForSystem(systemName string) map[string]string {
+	system = systemName
+	evaluateAllPropertyFiles()
+	var props = make(map[string]string)
+	for key, prop := range properties {
+		props[key] = prop.value
+	}
+	return props
+}
+
 func readPropertiesFromFile(file *os.File) map[string]string {
 
 	var props = make(map[string]string)
@@ -283,25 +350,6 @@ func readPropertiesFromFile(file *os.File) map[string]string {
 		}
 	}
 	return props
-}
-
-func getProperty(args []string) {
-
-	var requestedProperty = args[1]
-
-	if system == "" {
-		systems := readSystemNames()
-		showGenerateHelp(systems, "")
-		return
-	}
-
-	evaluateAllPropertyFiles()
-
-	if value, ok := properties[requestedProperty]; ok {
-		fmt.Print(value.value)
-	} else {
-		os.Exit(1)
-	}
 }
 
 func evaluateAllPropertyFiles() {
@@ -319,35 +367,6 @@ func evaluateAllPropertyFiles() {
 	for _, propfile := range propertyFiles {
 		logInfo(fmt.Sprintf("evaluating property file %v \n", propfile))
 		evaluatePropertiesFromFile(propfile)
-	}
-}
-
-func generate(args []string) {
-
-	if system == "" {
-		systems := readSystemNames()
-		showGenerateHelp(systems, "")
-		return
-	}
-
-	if system != "<all>" {
-		evaluateAllPropertyFiles()
-		createOutput()
-	} else {
-		expandFileList()
-		systems := readSystemNames()
-		outputOriginal := output
-		for _, system = range systems {
-			evaluateAllPropertyFiles()
-			if outputOriginal != "<console>" {
-				if outputOriginal == localPropertiesFile {
-					output = "local-" + system + ".properties"
-				} else {
-					output = outputOriginal + "-" + system
-				}
-			}
-			createOutput()
-		}
 	}
 }
 

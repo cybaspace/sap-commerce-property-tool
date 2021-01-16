@@ -1,3 +1,3 @@
-module cyba.space/sap-com-props
+module github.com/cybaspace/sap-commerce-property-tool
 
 go 1.15

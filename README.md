@@ -56,7 +56,7 @@ Arguments are
 This command generates a `local.properties` file out of a list of property and csv files.
 
 ### Usage
-`yprops [-path=<filepath>] [-files=<filelist>] [-system=<systemname>] generate`
+`yprops [-path=<filepath>] [-files=<filelist>] [-system=<systemname>] [-output=<target>] generate`
 
 ### Parameter
  * `path`  
@@ -77,6 +77,14 @@ This command generates a `local.properties` file out of a list of property and c
    If there are more than one csv file a column for the system **must** exist in all csv files.
    If no csv files are used, this parameter can be omitted.
 
+   `<all>` as systemname will generate files for all defined systems, with name `local-<systemname>.properties` or `<filename>-<systemname>`, if _<filename>_ is specified in the parameter `-output=<filename>`
+
+ * `-output=<outputtarget>`  
+   Specify where the generated properties go to.  
+   `<console>` means to display on screen, everything else will be interpreted as filename.  
+   A filename can be used with path or only the name, than the path from path parameter will be used.  
+   Default value is: *local.properties*
+
 ### Description
 
 Property files **must** have the prefix `.properties` and csv files the prefix `.csv`.
@@ -90,21 +98,29 @@ Each system name must exist in each csv file, if more than one is used. The orde
 Gets a single value or a set of values from a `local.properties` file or a set of files.
 
 ### Usage
-`yprops [-path=<path>] [-propfiles=<filelist>] [-system=<systemname>] get <property>`
+`yprops [-path=<path>] [-propfiles=<filelist>] [-system=<systemname>] get <property/properties>`
 
 ### Parameter
- * `path`  
+ * `-path`  
    specify where the property and csv files are stored - there will also the generated `local.properties` will be stored.  
    If `path` is not specified the current working directory will be used.  
    If a `local.properties` file in the specified path already exists it will be overwritten without a question.
- * `filelist`  
+ * `-filelist`  
    Comma separated list of property and csv files, e.g.  
    `application.properties,sap.properties.machine.properties.csv`  
    If `filelist` is not specified there must be a file `property-files` in the `path` which lists the files - each per line.
- * `systemname`  
+ * `-systemname`  
    The name of the system as defined in the first line of the csv files.  
    If there are more than one csv file a column for the system **must** exist in all csv files.
    If no csv files are used, this parameter can be omitted.
+ * `property/properties`  
+   If specified only one property the output will only the value of this property.  
+   Otherwise if multiple properties are specified then each property key and value will printed to console.  
+   e.g.  
+   ```
+   one.property=a value
+   second.property=another value
+   ```
 
 ## diff
 
